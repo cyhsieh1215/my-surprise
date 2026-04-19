@@ -24,6 +24,42 @@
             border-radius: 1rem;
             transition: all 0.3s ease;
         }
+        /* 密碼鎖專用樣式 */
+        #auth-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        .passcode-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            width: 50px;
+            height: 60px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .passcode-input:focus {
+            border-color: #ec4899;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(236, 72, 153, 0.5);
+        }
+        .error-shake { animation: shake 0.4s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
         .glass-card.unlocked:hover {
             transform: translateY(-5px);
             background: rgba(255, 255, 255, 0.2);
@@ -91,12 +127,30 @@
 </head>
 <body class="pb-32 relative">
 
+    <!-- 密碼鎖畫面 -->
+    <div id="auth-overlay">
+        <div class="text-center p-6 max-w-sm w-full">
+            <div class="mb-8">
+                <i data-lucide="lock" class="w-12 h-12 text-pink-400 mx-auto mb-4"></i>
+                <h1 class="text-2xl font-bold text-white">身分驗證</h1>
+                <p class="text-white/60 text-sm mt-2">請輸入你的生日以開啟補給站</p>
+            </div>
+            <div id="passcode-container" class="flex justify-center gap-3 mb-6">
+                <input type="password" maxlength="1" class="passcode-input" autofocus>
+                <input type="password" maxlength="1" class="passcode-input">
+                <input type="password" maxlength="1" class="passcode-input">
+                <input type="password" maxlength="1" class="passcode-input">
+            </div>
+            <p id="auth-error" class="text-pink-500 text-sm font-bold opacity-0 transition-opacity">密碼錯誤，再試一次 ❤️</p>
+        </div>
+    </div>
+
     <div id="stars-container" class="fixed inset-0 pointer-events-none z-0"></div>
 
     <header class="relative z-10 pt-20 pb-10 px-6 text-center">
         <h1 class="text-3xl font-bold mb-2 flex justify-center items-center gap-2">
             <i data-lucide="mail-heart" class="text-pink-300 w-8 h-8"></i>
-            下班補給站
+            補給站
         </h1>
         <p class="text-sm text-pink-200 opacity-90">專屬你的 19 天陪伴計畫，每天下班來點擊吧！</p>
     </header>
@@ -112,7 +166,7 @@
         </button>
     </div>
 
-    <!-- 彈窗內容維持不變 -->
+    <!-- 彈窗內容 -->
     <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden-modal px-4">
         <div class="modal-content glass-card bg-white/20 p-6 max-w-sm w-full relative max-h-[90vh] overflow-y-auto">
             <button onclick="window.closeModal()" class="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 rounded-full p-1 z-10">
@@ -204,6 +258,63 @@
         let currentOpenedDayIndex = null;
         let chargeInterval;
 
+        // --- 密碼鎖邏輯 ---
+        const CORRECT_PASSCODE = "0327";
+        const inputs = document.querySelectorAll('.passcode-input');
+        
+        inputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+                checkPasscode();
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+        });
+
+        function checkPasscode() {
+            const code = Array.from(inputs).map(i => i.value).join('');
+            if (code.length === 4) {
+                if (code === CORRECT_PASSCODE) {
+                    unlockApp();
+                } else {
+                    showAuthError();
+                }
+            }
+        }
+
+        function unlockApp() {
+            const overlay = document.getElementById('auth-overlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 500);
+            // 存入 sessionStorage 讓使用者重新整理後短時間免密碼
+            sessionStorage.setItem('app_unlocked', 'true');
+        }
+
+        function showAuthError() {
+            const container = document.getElementById('passcode-container');
+            const errorText = document.getElementById('auth-error');
+            container.classList.add('error-shake');
+            errorText.classList.remove('opacity-0');
+            setTimeout(() => {
+                container.classList.remove('error-shake');
+                inputs.forEach(i => i.value = '');
+                inputs[0].focus();
+            }, 600);
+        }
+
+        // 檢查是否已解鎖
+        if (sessionStorage.getItem('app_unlocked') === 'true') {
+            document.getElementById('auth-overlay').style.display = 'none';
+        }
+
+        // --- 原有功能邏輯 ---
         function createStars() {
             const container = document.getElementById('stars-container');
             if (!container) return;
