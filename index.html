@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>給你的專屬補給站 ❤️</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #4c1d95 50%, #9a3412 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden; 
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+        .glass-card.unlocked:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        .glass-card.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(80%);
+        }
+        .hidden-modal { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .show-modal { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: scale(0.9); transition: transform 0.3s ease; }
+        .show-modal .modal-content { transform: scale(1); }
+        .star { position: absolute; background-color: white; border-radius: 50%; animation: twinkle infinite alternate; }
+        @keyframes twinkle { 0% { opacity: 0.2; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1.2); } }
+        .floating-heart { position: fixed; bottom: 80px; right: 30px; color: #ec4899; font-size: 24px; pointer-events: none; animation: floatUp 2s ease-out forwards; z-index: 100; }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-200px) scale(1.5); opacity: 0; } }
+        
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .animate-ping {
+            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes pet {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(6px); }
+        }
+        .pet-animate {
+            animation: pet 0.2s ease-in-out;
+        }
+
+        .scratch-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            z-index: 10;
+            transition: opacity 0.5s ease-out;
+        }
+    </style>
+</head>
+<body class="pb-32 relative">
+
+    <div id="stars-container" class="fixed inset-0 pointer-events-none z-0"></div>
+
+    <header class="relative z-10 pt-20 pb-10 px-6 text-center">
+        <h1 class="text-3xl font-bold mb-2 flex justify-center items-center gap-2">
+            <i data-lucide="mail-heart" class="text-pink-300 w-8 h-8"></i>
+            下班補給站
+        </h1>
+        <p class="text-sm text-pink-200 opacity-90">專屬你的 19 天陪伴計畫，每天下班來點擊吧！</p>
+    </header>
+
+    <main class="relative z-10 px-6 max-w-lg mx-auto">
+        <div id="cards-grid" class="grid grid-cols-2 gap-4"></div>
+    </main>
+
+    <div class="fixed bottom-6 right-6 z-40 flex flex-col items-center">
+        <div id="heart-count" class="bg-white/20 backdrop-blur text-white text-xs px-2 py-1 rounded-full mb-2 font-bold opacity-0 transition-opacity">0</div>
+        <button onclick="window.sendHeart()" class="bg-pink-500 hover:bg-pink-400 text-white rounded-full p-4 shadow-lg shadow-pink-500/50 transition-transform active:scale-90 flex items-center justify-center">
+            <i data-lucide="heart" class="w-6 h-6 fill-current"></i>
+        </button>
+    </div>
+
+    <!-- 彈窗內容維持不變 -->
+    <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden-modal px-4">
+        <div class="modal-content glass-card bg-white/20 p-6 max-w-sm w-full relative max-h-[90vh] overflow-y-auto">
+            <button onclick="window.closeModal()" class="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 rounded-full p-1 z-10">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="text-center mt-2">
+                <h2 id="modal-day" class="text-sm text-pink-300 font-bold tracking-widest uppercase mb-1"></h2>
+                <h3 id="modal-title" class="text-xl font-bold mb-4 text-white"></h3>
+                
+                <div id="modal-image-container" class="mb-4 hidden rounded-lg overflow-hidden border border-white/20">
+                    <img id="modal-image" src="" alt="驚喜圖片" class="w-full h-auto object-cover max-h-48">
+                </div>
+
+                <div id="modal-video-container" class="mb-4 hidden rounded-lg overflow-hidden border border-white/20 shadow-lg">
+                    <div class="video-container" id="video-wrapper"></div>
+                </div>
+
+                <div id="modal-scratch-interaction" class="mb-4 hidden flex flex-col items-center gap-2">
+                    <div class="relative w-48 h-12 mx-auto mt-2 bg-pink-100 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer" onclick="scratch(event, this)">
+                        <div class="scratch-overlay absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center text-white text-xs font-bold z-10">
+                            刮開有驚喜
+                        </div>
+                        <span class="text-xs font-bold text-pink-600 px-2">哥哥是最~~可愛最棒最帥的❤️</span>
+                    </div>
+                </div>
+                
+                <div id="modal-custom-interaction" class="mb-4 hidden flex flex-col items-center gap-2">
+                    <p class="text-xs text-pink-200">點擊愛心注入能量</p>
+                    <span class="text-5xl select-none cursor-pointer inline-block transition-transform active:scale-90" onclick="tapHeart(event, this)" data-taps="0">🤍</span>
+                    <div id="energy-message" class="text-xs text-pink-300 font-bold opacity-0 transition-opacity">能量充滿！❤️</div>
+                </div>
+
+                <div id="modal-battery-interaction" class="mb-4 hidden flex flex-col items-center gap-2">
+                    <p class="text-xs text-green-300">長按電池恢復精神</p>
+                    <div class="w-16 h-8 border-2 border-gray-400 rounded-md relative overflow-hidden cursor-pointer" 
+                         onmousedown="startCharge(event, this)" 
+                         onmouseup="endCharge(event)" 
+                         ontouchstart="startCharge(event, this)" 
+                         ontouchend="endCharge(event)">
+                        <div id="charge-fill" class="h-full bg-green-400" style="width:0%"></div>
+                    </div>
+                    <div id="battery-status" class="text-xs text-green-300 font-bold opacity-0 transition-opacity">⚡️ 精神百倍！</div>
+                </div>
+
+                <div id="modal-pet-interaction" class="mb-4 hidden flex flex-col items-center gap-2">
+                    <p class="text-xs text-blue-300">連續點擊摸摸頭</p>
+                    <div class="relative h-12 w-full mt-2 cursor-pointer flex items-center justify-center" onclick="petHead(event, this)" data-pets="0">
+                        <span class="pet-target text-3xl select-none transition-all">✋👶</span>
+                    </div>
+                    <div id="pet-message" class="text-xs text-blue-300 font-bold opacity-0 transition-opacity">被摸得好舒服喔～🥰</div>
+                </div>
+
+                <p id="modal-content" class="text-base text-white/90 leading-relaxed whitespace-pre-line text-left mb-6"></p>
+                
+                <div class="border-t border-white/20 pt-4 mt-2 text-left">
+                    <p class="text-sm text-pink-200 font-bold mb-2 flex items-center gap-1">
+                        <i data-lucide="message-circle-heart" class="w-4 h-4"></i> 任務回報 / 留言：
+                    </p>
+                    <div id="reply-loading" class="text-xs text-white/50 animate-pulse hidden">連線中...</div>
+                    <div id="reply-display" class="hidden bg-white/10 p-3 rounded-lg text-sm text-white border border-white/10 shadow-inner mb-4"></div>
+                    <div id="reply-form" class="hidden flex gap-2">
+                        <input type="text" id="reply-input" placeholder="寫點什麼回傳..." class="flex-1 bg-black/30 border border-white/30 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:border-pink-400">
+                        <button onclick="window.submitReply()" id="btn-submit-reply" class="bg-pink-500 hover:bg-pink-400 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap">送出</button>
+                    </div>
+                </div>
+                
+                <button onclick="window.closeModal()" class="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/30 rounded-lg font-medium transition-colors">先關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="alert-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50 px-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-xl">
+            <div class="text-4xl mb-4">🖐️</div>
+            <h3 class="text-lg font-bold text-gray-800 mb-2">急什麼～明天再來！</h3>
+            <p class="text-gray-600 text-sm mb-6">驚喜是要留給明天的你的，現在乖乖去休息。</p>
+            <button onclick="window.closeAlertModal()" class="bg-[#E8A598] text-white px-8 py-2 rounded-full font-medium w-full text-sm">好啦 (收手)</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        lucide.createIcons();
+        let db, auth, user, appId;
+        let currentDayUnsubscribe = null;
+        let currentOpenedDayIndex = null;
+        let chargeInterval;
+
+        function createStars() {
+            const container = document.getElementById('stars-container');
+            if (!container) return;
+            for(let i=0; i<30; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.left = Math.random() * 100 + 'vw';
+                star.style.top = Math.random() * 100 + 'vh';
+                star.style.animationDuration = (Math.random() * 2 + 1) + 's';
+                container.appendChild(star);
+            }
+        }
+        createStars();
+
+        window.scratch = function(e, el) {
+            if (e) e.stopPropagation();
+            const overlay = el.querySelector('.scratch-overlay');
+            if (overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => { overlay.remove(); }, 500);
+            }
+        };
+
+        window.tapHeart = function(e, el) {
+            if (e) e.stopPropagation(); 
+            let taps = parseInt(el.getAttribute('data-taps')) + 1;
+            el.setAttribute('data-taps', taps);
+            const icons = ['🤍', '🩷', '💖', '💝'];
+            el.innerText = icons[Math.min(taps, 3)];
+            if(taps >= 3) {
+                el.classList.add('animate-ping');
+                document.getElementById('energy-message').classList.remove('opacity-0');
+            }
+        };
+
+        window.startCharge = function(e, el) {
+            if (e) e.stopPropagation();
+            const fill = document.getElementById('charge-fill');
+            let width = 0;
+            clearInterval(chargeInterval);
+            chargeInterval = setInterval(() => {
+                width += 5;
+                fill.style.width = width + '%';
+                if (width >= 100) {
+                    clearInterval(chargeInterval);
+                    document.getElementById('battery-status').classList.remove('opacity-0');
+                }
+            }, 50);
+        };
+
+        window.endCharge = function(e) {
+            if (e) e.stopPropagation();
+            clearInterval(chargeInterval);
+            const fill = document.getElementById('charge-fill');
+            if (parseFloat(fill.style.width) < 100) { fill.style.width = '0%'; }
+        };
+
+        window.petHead = function(e, el) {
+            if (e) e.stopPropagation();
+            let count = parseInt(el.getAttribute('data-pets')) + 1;
+            el.setAttribute('data-pets', count);
+            el.classList.remove('pet-animate');
+            void el.offsetWidth;
+            el.classList.add('pet-animate');
+            if (count >= 5) {
+                const target = el.querySelector('.pet-target');
+                if (target) { target.innerHTML = "🥰💖"; target.classList.add('scale-125'); }
+                document.getElementById('pet-message').classList.remove('opacity-0');
+                el.onclick = (event) => event.stopPropagation();
+            }
+        };
+
+        const surprisesData = [
+            { day: 1, date: '2026-04-20', title: '啟動日！送你一個笑容', content: '辛苦啦！接下來的19天，每天下班記得來這裡領取驚喜喔！雖然隔著距離，但我一直都在。', image: 'https://images.unsplash.com/photo-1718420432340-3ae70488ebd5?q=80&w=687&auto=format&fit=crop', icon: 'rocket' },
+            { day: 2, date: '2026-04-21', title: '美食的誘惑', content: '放假日~~放上一張你愛的臭豆腐！別流口水等你回來就可以吃吃吃吃吃啦', image: 'https://images.unsplash.com/photo-1657251867365-912394b305ea?q=80&w=1170&auto=format&fit=crop', icon: 'utensils' },
+            { day: 3, date: '2026-04-22', title: '送你一張刮刮樂', content: '今天天氣滿舒服的，希望你那邊也是。今天有發生什麼有趣的事嗎？等你想睡的時候再跟我說喔。', image: '', icon: 'ticket', hasScratch: true },
+            { day: 4, date: '2026-04-23', title: '摸摸頭兌換券', content: '覺得累的時候，想像我正在揉你的頭髮？狗狗的表情跟你一模一樣', image: 'https://images.unsplash.com/photo-1763490538579-d030e92a8bd1?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHRvdWNoJTIwZG9nfGVufDB8fDB8fHww', icon: 'dog' },
+            { day: 5, date: '2026-04-24', title: '週五通勤歌單', content: '送上一段影片，搭車的時候可以配著聽。緩解一下疲憊的心情~', video: 'https://www.youtube.com/embed/D54StAZFUrc', icon: 'music' },
+            { day: 6, date: '2026-04-25', title: '愛心攻擊', content: '好期待你回來再一起創造新回憶。幫你注入一點愛心能量！', image: '', icon: 'message-circle-heart', hasHeart: true },
+            { day: 7, date: '2026-04-26', title: '大家來找碴', content: '週日小遊戲！猜猜看圖片上有什麼驚喜的地方？', image: 'https://docs.google.com/drawings/d/e/2PACX-1vQkND0yTp9Tnu7CIX1hetbgpY-jbiESDMWBwJwFl3-tRireZYuvmVwOhRVAmFSukH-drv4LEYgYvq7k/pub?w=487&h=691', icon: 'search' },
+            { day: 8, date: '2026-04-27', title: '超市探險', content: '下班去超市，買一個包裝最奇怪的飲料試喝！拍照回報口感給我！', image: '', icon: 'cup-soda' },
+            { day: 9, date: '2026-04-28', title: '默契大考驗', content: '1. 我最喜歡的冰淇淋是什麼口味？\n2. 我最喜歡吃的水果？', image: '', icon: 'brain' },
+            { day: 10, date: '2026-04-29', title: '街頭觀察員', content: '今天在路上拍一張「看起來最像我們」的物品或動物給我看！', image: '', icon: 'camera' },
+            { day: 11, date: '2026-04-30', title: '共享月亮', content: '看窗外，我們看的是同一個月亮喔 🌕 晚安。', image: '', icon: 'moon' },
+            { day: 12, date: '2026-05-01', title: '勞動節快樂！', content: '特准你去買一個高級甜點，熱量由我來扛！拍給我看姊姊請你吃！', image: '', icon: 'cake' },
+            { day: 13, date: '2026-05-02', title: '秘密特務指令', content: '日本便利商店隱藏吃法？😎', image: 'https://scontent-tpe1-1.xx.fbcdn.net/v/t39.30808-6/651756640_1504508827709551_8911634847056226667_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=13d280&_nc_ohc=WjYpt67JIwAQ7kNvwFOUL-4&_nc_oc=AdorWfCCve-pI4OcThHLGnoYe32ySDq-seL3vaNr1hfkO6nDsDYHqpBV-c4PIdtuM4w&_nc_zt=23&_nc_ht=scontent-tpe1-1.xx&_nc_gid=tScFj5cc2Tc0WrBabQAAmQ&_nc_ss=7a3a8&oh=00_Af00Zh1lEVLm1WLqcnR7Lo2-s_5cT1ze-c5yId-hAUMuuw&oe=69EADA24', icon: 'user-check' },
+            { day: 14, date: '2026-05-03', title: '充電模式', content: '上班好累累~注入長按電量，幫你恢復 100% 的精神！', image: '', icon: 'battery-charging', hasBattery: true },
+            { day: 15, date: '2026-05-04', title: '倒數 5 天！', content: '回國第一餐想吃什麼？高雄的麵麵?', image: '', icon: 'timer' },
+            { day: 16, date: '2026-05-05', title: '倒數 4 天！', content: '來，給你摸摸頭！', image: '', icon: 'baby', hasPet: true },
+            { day: 17, date: '2026-05-06', title: '倒數 3 天！', content: '我已經挑好幾部電影了，週末我們要一起窩在沙發上看。', image: 'https://plus.unsplash.com/premium_photo-1682126367699-e925894017b5?q=80&w=1260&auto=format&fit=crop', icon: 'film' },
+            { day: 18, date: '2026-05-07', title: '倒數 2 天！', content: '請把我的伴手禮放在行李箱最安全的位置。明天見！', image: 'https://images.unsplash.com/photo-1674752887945-7c382490b2f0?q=80&w=687&auto=format&fit=crop', icon: 'luggage' },
+            { day: 19, date: '2026-05-08', title: '迫不及待！', content: '最後一天啦！！！一路上注意安全，今晚給你一個最大的擁抱！❤️', image: 'https://images.unsplash.com/photo-1695026057379-f773e838072b?q=80&w=1170&auto=format&fit=crop', icon: 'heart-handshake' }
+        ];
+
+        window.getCurrentDateString = function() {
+            const today = new Date();
+            return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        }
+
+        window.isUnlocked = (date) => window.getCurrentDateString() >= date;
+        window.showAlertModal = () => { document.getElementById('alert-modal').classList.replace('hidden', 'flex'); };
+        window.closeAlertModal = () => { document.getElementById('alert-modal').classList.replace('flex', 'hidden'); };
+
+        window.renderCards = function() {
+            const grid = document.getElementById('cards-grid');
+            if (!grid) return;
+            grid.innerHTML = ''; 
+            surprisesData.forEach((data, index) => {
+                const unlocked = window.isUnlocked(data.date);
+                const card = document.createElement('div');
+                card.className = `glass-card p-4 flex flex-col items-center justify-center text-center aspect-square ${unlocked ? 'unlocked' : 'locked'}`;
+                card.onclick = unlocked ? () => window.openModal(index) : () => window.showAlertModal();
+                card.innerHTML = `
+                    <div class="text-xs text-white/60 mb-2 font-mono">${data.date.substring(5)}</div>
+                    <div class="bg-white/20 p-3 rounded-full mb-2 relative">
+                        <i data-lucide="${unlocked ? data.icon : 'lock'}" class="w-6 h-6 ${unlocked ? 'text-pink-300' : 'text-gray-400'}"></i>
+                    </div>
+                    <div class="font-bold text-sm">Day ${data.day}</div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        window.openModal = function(index) {
+            currentOpenedDayIndex = index;
+            const data = surprisesData[index];
+            document.getElementById('modal-day').innerText = `Day ${data.day} · ${data.date.substring(5)}`;
+            document.getElementById('modal-title').innerText = data.title;
+            document.getElementById('modal-content').innerText = data.content;
+            
+            const imgCont = document.getElementById('modal-image-container');
+            const vidCont = document.getElementById('modal-video-container');
+            const vidWrap = document.getElementById('video-wrapper');
+            const scratchCont = document.getElementById('modal-scratch-interaction');
+            const heartCont = document.getElementById('modal-custom-interaction');
+            const batteryCont = document.getElementById('modal-battery-interaction');
+            const petCont = document.getElementById('modal-pet-interaction');
+            
+            imgCont.classList.toggle('hidden', !data.image);
+            if(data.image) document.getElementById('modal-image').src = data.image;
+            vidCont.classList.toggle('hidden', !data.video);
+            vidWrap.innerHTML = data.video ? `<iframe src="${data.video}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>` : '';
+
+            scratchCont.classList.toggle('hidden', !data.hasScratch);
+            if (data.hasScratch) {
+                const scratchBox = scratchCont.querySelector('.relative');
+                scratchBox.innerHTML = `<div class="scratch-overlay absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center text-white text-xs font-bold z-10">刮開有驚喜</div><span class="text-xs font-bold text-pink-600 px-2">哥哥是最~~可愛最棒最帥的❤️</span>`;
+            }
+
+            heartCont.classList.toggle('hidden', !data.hasHeart);
+            if (data.hasHeart) {
+                const heartSpan = heartCont.querySelector('span'); heartSpan.setAttribute('data-taps', '0'); heartSpan.innerText = '🤍'; heartSpan.classList.remove('animate-ping'); document.getElementById('energy-message').classList.add('opacity-0');
+            }
+
+            batteryCont.classList.toggle('hidden', !data.hasBattery);
+            if (data.hasBattery) { document.getElementById('charge-fill').style.width = '0%'; document.getElementById('battery-status').classList.add('opacity-0'); }
+
+            petCont.classList.toggle('hidden', !data.hasPet);
+            if (data.hasPet) {
+                const petEl = petCont.querySelector('[data-pets]'); petEl.setAttribute('data-pets', '0'); petEl.querySelector('.pet-target').innerHTML = "✋👶"; petEl.querySelector('.pet-target').classList.remove('scale-125'); petEl.onclick = (e) => window.petHead(e, petEl); document.getElementById('pet-message').classList.add('opacity-0');
+            }
+
+            document.getElementById('reply-display').classList.add('hidden');
+            document.getElementById('reply-form').classList.add('hidden');
+            document.getElementById('modal').classList.replace('hidden-modal', 'show-modal');
+            if (user && db) listenToReply(data.day);
+        }
+
+        window.closeModal = function() {
+            document.getElementById('modal').classList.replace('show-modal', 'hidden-modal');
+            document.getElementById('video-wrapper').innerHTML = ''; 
+            clearInterval(chargeInterval);
+            if (currentDayUnsubscribe) currentDayUnsubscribe();
+        }
+
+        window.sendHeart = async function() {
+            const h = document.createElement('div'); h.innerHTML = '❤️'; h.className = 'floating-heart';
+            document.body.appendChild(h); setTimeout(() => h.remove(), 2000);
+            if (!user || !db) return;
+            try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'interactions', 'hearts'), { count: increment(1) }, { merge: true }); } catch (e) {}
+        }
+
+        function listenToReply(day) {
+            if (currentDayUnsubscribe) currentDayUnsubscribe();
+            currentDayUnsubscribe = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'replies', `day_${day}`), (snap) => {
+                const hasRep = snap.exists() && snap.data().text;
+                document.getElementById('reply-display').innerText = hasRep ? snap.data().text : '';
+                document.getElementById('reply-display').classList.toggle('hidden', !hasRep);
+                document.getElementById('reply-form').classList.toggle('hidden', hasRep);
+            });
+        }
+
+        window.submitReply = async function() {
+            const input = document.getElementById('reply-input');
+            if (!input.value.trim()) return;
+            try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'replies', `day_${surprisesData[currentOpenedDayIndex].day}`), { text: input.value.trim() }); } catch(e) {}
+        }
+
+        window.onload = async () => {
+            window.renderCards();
+            try {
+                const cfg = JSON.parse(__firebase_config);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const app = initializeApp(cfg); auth = getAuth(app); db = getFirestore(app);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
+                onAuthStateChanged(auth, (u) => { user = u; if(user) onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'interactions', 'hearts'), s => { document.getElementById('heart-count').innerText = s.data()?.count || 0; document.getElementById('heart-count').classList.remove('opacity-0'); }); });
+            } catch (e) {}
+        };
+    </script>
+</body>
+</html>
